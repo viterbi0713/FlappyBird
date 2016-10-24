@@ -8,6 +8,7 @@
 
 import Foundation
 import SpriteKit
+import AVFoundation
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
     
@@ -16,12 +17,21 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     var bird:SKSpriteNode!
     var itemNode:SKNode!
     
+    // For BGM
+        var musicPlayer:AVAudioPlayer!
+    
+        let music_data = NSURL(fileURLWithPath: NSBundle.mainBundle().pathForResource("bgm", ofType: "mp3")!)
+    
+    //Ground Height
+    var groundHeight: Int = 0
+    
     // 衝突判定カテゴリー ↓追加
     let birdCategory: UInt32 = 1 << 0       // 0...00001
     let groundCategory: UInt32 = 1 << 1     // 0...00010
     let wallCategory: UInt32 = 1 << 2       // 0...00100
     let scoreCategory: UInt32 = 1 << 3      // 0...01000
     let itemCategory: UInt32 = 1 << 4  //For Kadai
+    
     
     
     // スコア
@@ -59,6 +69,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         setupBird()
         setupScoreLabel()
         setupItem()
+        
+        //BGM
+        musicPlayer = try! AVAudioPlayer(contentsOfURL: music_data)
+        musicPlayer.play()
+        musicPlayer.numberOfLoops = -1
     }
     
     func setupScoreLabel() {
@@ -95,6 +110,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // 地面の画像を読み込む
         let groundTexture = SKTexture(imageNamed: "ground")
         groundTexture.filteringMode = SKTextureFilteringMode.Nearest
+        
+        groundHeight = Int(groundTexture.size().height)
         
         // 必要な枚数を計算
         let needNumber = 2.0 + (frame.size.width / groundTexture.size().width)
@@ -280,8 +297,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // 衝突のカテゴリー設定
         bird.physicsBody?.categoryBitMask = birdCategory // ←追加
-        bird.physicsBody?.collisionBitMask = groundCategory | wallCategory | scoreCategory// ←追加
-        bird.physicsBody?.contactTestBitMask = groundCategory | wallCategory | scoreCategory // ←追加
+        bird.physicsBody?.collisionBitMask = groundCategory | wallCategory // ←追加
+        bird.physicsBody?.contactTestBitMask = groundCategory | wallCategory | itemCategory // ←追加
         
         
         // アニメーションを設定
@@ -310,19 +327,21 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             item.position = CGPoint(x: self.frame.size.width + itemTexture.size().width / 2, y: 0)
             item.zPosition = 100
             
-            let random_y_range = self.frame.size.height - itemTexture.size().height*2
+            let groundHeight2: CGFloat = CGFloat(self.groundHeight)
+            
+            let random_y_range = self.frame.size.height - itemTexture.size().height - groundHeight2
             
             let random_y = arc4random_uniform( UInt32(random_y_range) )
 
-            let item_y = CGFloat(random_y + 200)
-            
+            let item_y = CGFloat(random_y + UInt32(itemTexture.size().height) + UInt32(groundHeight2))
             
             let itemSprite = SKSpriteNode(texture: itemTexture)
             itemSprite.position = CGPoint(x: 0.0, y: item_y)
+            itemSprite.physicsBody = SKPhysicsBody(rectangleOfSize: itemTexture.size())
+            itemSprite.physicsBody?.dynamic = false
+            itemSprite.physicsBody?.categoryBitMask = self.itemCategory
+            itemSprite.physicsBody?.contactTestBitMask = self.birdCategory
             item.addChild(itemSprite)
-            
-            
-            item.physicsBody?.categoryBitMask = self.itemCategory
             
             item.runAction(itemAnimation)
             
@@ -343,7 +362,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             bird.physicsBody?.velocity = CGVector.zero
             
             // 鳥に縦方向の力を与える
-            bird.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 15))
+            bird.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 10))
         } else if bird.speed == 0 { // --- ここから ---
             restart()
         } // --- ここまで追加 ---
@@ -351,6 +370,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // SKPhysicsContactDelegateのメソッド。衝突したときに呼ばれる
     func didBeginContact(contact: SKPhysicsContact) {
+        
+        let itemGetSound : SKAction = SKAction.playSoundFileNamed("itemSound.mp3", waitForCompletion: true)
+        let deadSound: SKAction = SKAction.playSoundFileNamed("dead.mp3", waitForCompletion: true)
+        
         // ゲームオーバーのときは何もしない
         if scrollNode.speed <= 0 {
             return
@@ -374,10 +397,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             
         } else if (contact.bodyA.categoryBitMask & itemCategory) == itemCategory || (contact.bodyB.categoryBitMask & itemCategory) == itemCategory {
             itemscore += 1
+            score += 1
             print("item +1")
             
             itemscoreLabelNode.text = "Item:\(itemscore)"
-            
+            contact.bodyA.node!.removeFromParent()
+            self.runAction(itemGetSound)
             
         } else {
             // 壁か地面と衝突した
@@ -392,12 +417,17 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             bird.runAction(roll, completion:{
                 self.bird.speed = 0
             })
+            musicPlayer.stop()
+            self.runAction(deadSound)
         }
     }
     
     func restart() {
         score = 0
         scoreLabelNode.text = String("Score:\(score)")
+        itemscore = 0
+        itemscoreLabelNode.text = String("Item:\(itemscore)")
+        
 
         bird.position = CGPoint(x: self.frame.size.width * 0.2, y:self.frame.size.height * 0.7)
         bird.physicsBody?.velocity = CGVector.zero
@@ -409,6 +439,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         bird.speed = 1
         scrollNode.speed = 1
+        musicPlayer = try! AVAudioPlayer(contentsOfURL: music_data)
+        musicPlayer.play()
+        musicPlayer.numberOfLoops = -1
     }
-    
 }

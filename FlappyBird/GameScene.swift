@@ -287,7 +287,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // スプライトを作成
         bird = SKSpriteNode(texture: birdTextureA)
-        bird.position = CGPoint(x: 30, y:self.frame.size.height * 0.7)
+        bird.position = CGPoint(x: self.frame.size.width * 0.2, y:self.frame.size.height * 0.7)
         
         // 物理演算を設定
         bird.physicsBody = SKPhysicsBody(circleOfRadius: bird.size.height / 2.0) // ←追加
@@ -362,10 +362,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             bird.physicsBody?.velocity = CGVector.zero
             
             // 鳥に縦方向の力を与える
-            bird.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 10))
-        } else if bird.speed == 0 { // --- ここから ---
+            bird.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 12))
+        } else if bird.speed == 0 {
             restart()
-        } // --- ここまで追加 ---
+        } 
     }
     
     // SKPhysicsContactDelegateのメソッド。衝突したときに呼ばれる
@@ -396,6 +396,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             
         } else if (contact.bodyA.categoryBitMask & itemCategory) == itemCategory || (contact.bodyB.categoryBitMask & itemCategory) == itemCategory {
+            // アイテム取得
             itemscore += 1
             score += 1
             print("item +1")
